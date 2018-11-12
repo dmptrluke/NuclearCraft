@@ -38,6 +38,8 @@ public class TileItemProcessor extends TileEnergySidedInventory implements IItem
 	
 	public double time;
 	public boolean isProcessing, canProcessInputs;
+
+	public double speedMultiplier, powerMultiplier;
 	
 	public final boolean shouldLoseProgress, hasUpgrades;
 	public final int upgradeMeta;
@@ -91,6 +93,7 @@ public class TileItemProcessor extends TileEnergySidedInventory implements IItem
 	
 	public void updateProcessor() {
 		recipe = getRecipeHandler().getRecipeFromInputs(getItemInputs(), new ArrayList<Tank>());
+		updateValues();
 		canProcessInputs = canProcessInputs();
 		boolean wasProcessing = isProcessing;
 		isProcessing = isProcessing();
@@ -157,28 +160,34 @@ public class TileItemProcessor extends TileEnergySidedInventory implements IItem
 	}
 	
 	// Processing
-	
-	public int getSpeedCount() {
-		if (!hasUpgrades) return 1;
-		ItemStack speedStack = inventoryStacks.get(itemInputSize + itemOutputSize);
-		if (speedStack == ItemStack.EMPTY) return 1;
-		return speedStack.getCount() + 1;
+
+	public void updateValues() {
+        int speedCount = 1;
+		if (hasUpgrades) {
+			ItemStack speedStack = inventoryStacks.get(itemInputSize + itemOutputSize);
+			if (speedStack != ItemStack.EMPTY) {
+				speedCount = speedStack.getCount() + 1;
+			}
+		}
+		this.speedMultiplier = (speedCount > 1 ? NCConfig.speed_upgrade_multipliers[0]*(NCMath.simplexNumber(speedCount, NCConfig.speed_upgrade_power_laws[0]) - 1) + 1 : 1);
+		this.powerMultiplier = (speedCount > 1 ? NCConfig.speed_upgrade_multipliers[1]*(NCMath.simplexNumber(speedCount, NCConfig.speed_upgrade_power_laws[1]) - 1) + 1 : 1);
 	}
+
 	
 	public double getSpeedMultiplier() {
-		return getSpeedCount() > 1 ? NCConfig.speed_upgrade_multipliers[0]*(NCMath.simplexNumber(getSpeedCount(), NCConfig.speed_upgrade_power_laws[0]) - 1) + 1 : 1;
+		return this.speedMultiplier;
 	}
 	
 	public double getPowerMultiplier() {
-		return getSpeedCount() > 1 ? NCConfig.speed_upgrade_multipliers[1]*(NCMath.simplexNumber(getSpeedCount(), NCConfig.speed_upgrade_power_laws[1]) - 1) + 1 : 1;
+		return this.powerMultiplier;
 	}
 	
 	public double getProcessTime() {
-		return Math.max(1, baseProcessTime/getSpeedMultiplier());
+		return Math.max(1, baseProcessTime/this.speedMultiplier);
 	}
 	
 	public int getProcessPower() {
-		return Math.min(Integer.MAX_VALUE, (int) ((double)baseProcessPower*getPowerMultiplier()));
+		return Math.min(Integer.MAX_VALUE, (int) (baseProcessPower * powerMultiplier));
 	}
 	
 	public double getProcessEnergy() {
@@ -199,17 +208,27 @@ public class TileItemProcessor extends TileEnergySidedInventory implements IItem
 		if (recipe == null) return false;
 		setRecipeStats();
 		if (time >= baseProcessTime) return true;
-		
+
+		// leads to (less) hell on earth
 		else if ((time <= 0 && (getProcessEnergy() <= getMaxEnergyModified() || getEnergyStored() < getMaxEnergyModified()) && (getProcessEnergy() > getMaxEnergyModified() || getProcessEnergy() > getEnergyStored())) || getEnergyStored() < getProcessPower()) return false;
 		
-		for (int j = 0; j < itemOutputSize; j++) {
-			IItemIngredient itemProduct = getItemProducts().get(j);
-			if (itemProduct.getMaxStackSize() <= 0) continue;
-			if (itemProduct.getStack() == null || itemProduct.getStack() == ItemStack.EMPTY) return false;
-			else if (!inventoryStacks.get(j + itemInputSize).isEmpty()) {
-				if (!inventoryStacks.get(j + itemInputSize).isItemEqual(itemProduct.getStack())) {
+		// loop over output slots
+		for (int i = itemInputSize; i < itemOutputSize; i++) {
+			// first, see if any slot is full. if it is, kill the process
+			if (inventoryStacks.get(i).getCount() >= inventoryStacks.get(i).getMaxStackSize()){
+				return false;
+			}
+			// get product for slot
+			IItemIngredient itemProduct = getItemProducts().get(i - itemInputSize);
+			if (itemProduct.getMaxStackSize() <= 0) return false;
+
+			// grab the output for slot, see if there's a spot for it
+			ItemStack stack = itemProduct.getStack();
+			if (stack == ItemStack.EMPTY) return false;
+			else if (!inventoryStacks.get(i).isEmpty()) {
+				if (!inventoryStacks.get(i).isItemEqual(stack)) {
 					return false;
-				} else if (inventoryStacks.get(j + itemInputSize).getCount() + itemProduct.getMaxStackSize() > inventoryStacks.get(j + itemInputSize).getMaxStackSize()) {
+				} else if (inventoryStacks.get(i).getCount() + itemProduct.getMaxStackSize() > inventoryStacks.get(i).getMaxStackSize()) {
 					return false;
 				}
 			}
