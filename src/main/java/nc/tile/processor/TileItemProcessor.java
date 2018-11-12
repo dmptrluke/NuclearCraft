@@ -39,7 +39,8 @@ public class TileItemProcessor extends TileEnergySidedInventory implements IItem
 	public double time;
 	public boolean isProcessing, canProcessInputs;
 
-	public double speedMultiplier, powerMultiplier;
+	private double speedMultiplier, powerMultiplier, processTime, processEnergy;
+	private int processPower;
 	
 	public final boolean shouldLoseProgress, hasUpgrades;
 	public final int upgradeMeta;
@@ -93,7 +94,6 @@ public class TileItemProcessor extends TileEnergySidedInventory implements IItem
 	
 	public void updateProcessor() {
 		recipe = getRecipeHandler().getRecipeFromInputs(getItemInputs(), new ArrayList<Tank>());
-		updateValues();
 		canProcessInputs = canProcessInputs();
 		boolean wasProcessing = isProcessing;
 		isProcessing = isProcessing();
@@ -161,16 +161,26 @@ public class TileItemProcessor extends TileEnergySidedInventory implements IItem
 	
 	// Processing
 
+	@Override
+	public void setInventorySlotContents(int index, ItemStack stack) {
+		super.setInventorySlotContents(index, stack);
+		updateValues();
+	}
+
 	public void updateValues() {
-        int speedCount = 1;
+		int speedCount = 1;
 		if (hasUpgrades) {
 			ItemStack speedStack = inventoryStacks.get(itemInputSize + itemOutputSize);
 			if (speedStack != ItemStack.EMPTY) {
 				speedCount = speedStack.getCount() + 1;
 			}
 		}
+
 		this.speedMultiplier = (speedCount > 1 ? NCConfig.speed_upgrade_multipliers[0]*(NCMath.simplexNumber(speedCount, NCConfig.speed_upgrade_power_laws[0]) - 1) + 1 : 1);
 		this.powerMultiplier = (speedCount > 1 ? NCConfig.speed_upgrade_multipliers[1]*(NCMath.simplexNumber(speedCount, NCConfig.speed_upgrade_power_laws[1]) - 1) + 1 : 1);
+		this.processTime = Math.max(1, baseProcessTime/this.speedMultiplier);
+		this.processPower = Math.min(Integer.MAX_VALUE, (int) (baseProcessPower * powerMultiplier));
+		this.processEnergy = processTime*processPower;
 	}
 
 	
@@ -183,15 +193,15 @@ public class TileItemProcessor extends TileEnergySidedInventory implements IItem
 	}
 	
 	public double getProcessTime() {
-		return Math.max(1, baseProcessTime/this.speedMultiplier);
+		return this.processTime;
 	}
 	
 	public int getProcessPower() {
-		return Math.min(Integer.MAX_VALUE, (int) (baseProcessPower * powerMultiplier));
+		return this.processPower;
 	}
 	
 	public double getProcessEnergy() {
-		return getProcessTime()*getProcessPower();
+		return this.processEnergy;
 	}
 	
 	public void setCapacityFromSpeed() {
