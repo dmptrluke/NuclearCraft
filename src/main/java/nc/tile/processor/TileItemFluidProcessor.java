@@ -104,6 +104,7 @@ public class TileItemFluidProcessor extends TileEnergyFluidSidedInventory implem
 	@Override
 	public void onAdded() {
 		super.onAdded();
+		updateMultipliers();
 		if (!world.isRemote) isProcessing = isProcessing();
 	}
 	
