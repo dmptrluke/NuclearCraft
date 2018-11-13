@@ -39,8 +39,8 @@ public class TileItemProcessor extends TileEnergySidedInventory implements IItem
 	public double time;
 	public boolean isProcessing, canProcessInputs;
 
-	private double speedMultiplier, powerMultiplier, processTime, processEnergy;
-	private int processPower;
+	public double speedMultiplier, powerMultiplier, processTime, processEnergy;
+	public int processPower;
 	
 	public final boolean shouldLoseProgress, hasUpgrades;
 	public final int upgradeMeta;
@@ -71,7 +71,6 @@ public class TileItemProcessor extends TileEnergySidedInventory implements IItem
 		this.upgradeMeta = upgradeMeta;
 		
 		this.recipeType = recipeType;
-		
 		slots = ArrayHelper.increasingArray(itemInSize + itemOutSize + (hasUpgrades ? 2 : 0));
 	}
 	
@@ -83,6 +82,7 @@ public class TileItemProcessor extends TileEnergySidedInventory implements IItem
 	@Override
 	public void onAdded() {
 		super.onAdded();
+		updateMultipliers();
 		if (!world.isRemote) isProcessing = isProcessing();
 	}
 	
@@ -164,10 +164,10 @@ public class TileItemProcessor extends TileEnergySidedInventory implements IItem
 	@Override
 	public void setInventorySlotContents(int index, ItemStack stack) {
 		super.setInventorySlotContents(index, stack);
-		updateValues();
+		updateMultipliers();
 	}
 
-	public void updateValues() {
+	public void updateMultipliers() {
 		int speedCount = 1;
 		if (hasUpgrades) {
 			ItemStack speedStack = inventoryStacks.get(itemInputSize + itemOutputSize);
@@ -176,32 +176,28 @@ public class TileItemProcessor extends TileEnergySidedInventory implements IItem
 			}
 		}
 
-		this.speedMultiplier = (speedCount > 1 ? NCConfig.speed_upgrade_multipliers[0]*(NCMath.simplexNumber(speedCount, NCConfig.speed_upgrade_power_laws[0]) - 1) + 1 : 1);
-		this.powerMultiplier = (speedCount > 1 ? NCConfig.speed_upgrade_multipliers[1]*(NCMath.simplexNumber(speedCount, NCConfig.speed_upgrade_power_laws[1]) - 1) + 1 : 1);
-		this.processTime = Math.max(1, baseProcessTime/this.speedMultiplier);
-		this.processPower = Math.min(Integer.MAX_VALUE, (int) (baseProcessPower * powerMultiplier));
-		this.processEnergy = processTime*processPower;
+		speedMultiplier = (speedCount > 1 ? NCConfig.speed_upgrade_multipliers[0]*(NCMath.simplexNumber(speedCount, NCConfig.speed_upgrade_power_laws[0]) - 1) + 1 : 1);
+		powerMultiplier = (speedCount > 1 ? NCConfig.speed_upgrade_multipliers[1]*(NCMath.simplexNumber(speedCount, NCConfig.speed_upgrade_power_laws[1]) - 1) + 1 : 1);
 	}
 
-	
 	public double getSpeedMultiplier() {
-		return this.speedMultiplier;
+		return speedMultiplier;
 	}
 	
 	public double getPowerMultiplier() {
-		return this.powerMultiplier;
+		return powerMultiplier;
 	}
 	
 	public double getProcessTime() {
-		return this.processTime;
+		return processTime;
 	}
 	
 	public int getProcessPower() {
-		return this.processPower;
+		return processPower;
 	}
 	
 	public double getProcessEnergy() {
-		return this.processEnergy;
+		return processEnergy;
 	}
 	
 	public void setCapacityFromSpeed() {
@@ -255,6 +251,10 @@ public class TileItemProcessor extends TileEnergySidedInventory implements IItem
 		baseProcessTime = recipe.getProcessTime(defaultProcessTime);
 		baseProcessPower = recipe.getProcessPower(defaultProcessPower);
 		baseProcessRadiation = recipe.getProcessRadiation();
+
+		processTime = Math.max(1, baseProcessTime/speedMultiplier);
+		processPower = Math.min(Integer.MAX_VALUE, (int) (baseProcessPower * powerMultiplier));
+		processEnergy = processTime * processPower;
 	}
 	
 	public void setDefaultRecipeStats() {

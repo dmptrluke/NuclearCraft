@@ -43,6 +43,9 @@ public class TileItemFluidProcessor extends TileEnergyFluidSidedInventory implem
 	
 	public double time;
 	public boolean isProcessing, canProcessInputs;
+
+	public double speedMultiplier, powerMultiplier, processTime, processEnergy;
+	public int processPower;
 	
 	public final boolean shouldLoseProgress, hasUpgrades;
 	public final int upgradeMeta;
@@ -180,34 +183,46 @@ public class TileItemFluidProcessor extends TileEnergyFluidSidedInventory implem
 	}
 	
 	// Processing
-	
-	public int getSpeedCount() {
-		if (!hasUpgrades) return 1;
-		ItemStack speedStack = inventoryStacks.get(itemInputSize + itemOutputSize);
-		if (speedStack == ItemStack.EMPTY) return 1;
-		return speedStack.getCount() + 1;
+
+	@Override
+	public void setInventorySlotContents(int index, ItemStack stack) {
+		super.setInventorySlotContents(index, stack);
+		updateMultipliers();
 	}
-	
+
+	public void updateMultipliers() {
+		int speedCount = 1;
+		if (hasUpgrades) {
+			ItemStack speedStack = inventoryStacks.get(itemInputSize + itemOutputSize);
+			if (speedStack != ItemStack.EMPTY) {
+				speedCount = speedStack.getCount() + 1;
+			}
+		}
+
+		speedMultiplier = (speedCount > 1 ? NCConfig.speed_upgrade_multipliers[0]*(NCMath.simplexNumber(speedCount, NCConfig.speed_upgrade_power_laws[0]) - 1) + 1 : 1);
+		powerMultiplier = (speedCount > 1 ? NCConfig.speed_upgrade_multipliers[1]*(NCMath.simplexNumber(speedCount, NCConfig.speed_upgrade_power_laws[1]) - 1) + 1 : 1);
+	}
+
 	public double getSpeedMultiplier() {
-		return getSpeedCount() > 1 ? NCConfig.speed_upgrade_multipliers[0]*(NCMath.simplexNumber(getSpeedCount(), NCConfig.speed_upgrade_power_laws[0]) - 1) + 1 : 1;
+		return speedMultiplier;
 	}
-	
+
 	public double getPowerMultiplier() {
-		return getSpeedCount() > 1 ? NCConfig.speed_upgrade_multipliers[1]*(NCMath.simplexNumber(getSpeedCount(), NCConfig.speed_upgrade_power_laws[1]) - 1) + 1 : 1;
+		return powerMultiplier;
 	}
-	
+
 	public double getProcessTime() {
-		return Math.max(1, baseProcessTime/getSpeedMultiplier());
+		return processTime;
 	}
-	
+
 	public int getProcessPower() {
-		return Math.min(Integer.MAX_VALUE, (int) ((double)baseProcessPower*getPowerMultiplier()));
+		return processPower;
 	}
-	
+
 	public double getProcessEnergy() {
-		return getProcessTime()*getProcessPower();
+		return processEnergy;
 	}
-	
+
 	public void setCapacityFromSpeed() {
 		getEnergyStorage().setStorageCapacity(MathHelper.clamp(NCConfig.machine_update_rate*getProcessPower(), 32000, Integer.MAX_VALUE));
 		getEnergyStorage().setMaxTransfer(MathHelper.clamp(NCConfig.machine_update_rate*getProcessPower(), 32000, Integer.MAX_VALUE));
@@ -261,6 +276,10 @@ public class TileItemFluidProcessor extends TileEnergyFluidSidedInventory implem
 		baseProcessTime = recipe.getProcessTime(defaultProcessTime);
 		baseProcessPower = recipe.getProcessPower(defaultProcessPower);
 		baseProcessRadiation = recipe.getProcessRadiation();
+
+		processTime = Math.max(1, baseProcessTime/speedMultiplier);
+		processPower = Math.min(Integer.MAX_VALUE, (int) (baseProcessPower * powerMultiplier));
+		processEnergy = processTime * processPower;
 	}
 	
 	public void setDefaultRecipeStats() {
