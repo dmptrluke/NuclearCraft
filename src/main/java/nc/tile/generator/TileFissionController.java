@@ -155,7 +155,7 @@ public class TileFissionController extends TileItemGenerator implements SimpleCo
 	
 	@Override
 	public void tickTile() {
-		tickCount++; tickCount %= 4*NCConfig.machine_update_rate;
+		tickCount++; tickCount %= 8*NCConfig.machine_update_rate;
 	}
 	
 	public boolean findAdjacentComparator() {
@@ -697,6 +697,10 @@ public class TileFissionController extends TileItemGenerator implements SimpleCo
 	}
 	
 	// Set Fuel and Power and Modify Heat
+
+	public boolean shouldTileCheckOffset() {
+		return tickCount == NCConfig.machine_update_rate*4;
+	}
 	
 	private void run() {
 		double energyThisTick = 0;
@@ -711,7 +715,7 @@ public class TileFissionController extends TileItemGenerator implements SimpleCo
 		
 		ready = readyToProcess() && !isActivated() ? 1 : 0;
 
-		if (shouldTileCheck()) {
+		if (shouldTileCheckOffset()) {
 			if (complete == 1) {
 				for (int z = minZ + 1; z <= maxZ - 1; z++) for (int x = minX + 1; x <= maxX - 1; x++) for (int y = minY + 1; y <= maxY - 1; y++) {
 					

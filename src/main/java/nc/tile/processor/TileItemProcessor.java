@@ -95,6 +95,7 @@ public class TileItemProcessor extends TileEnergySidedInventory implements IItem
 	public void updateProcessor() {
 		recipe = getRecipeHandler().getRecipeFromInputs(getItemInputs(), new ArrayList<Tank>());
 		canProcessInputs = canProcessInputs();
+
 		boolean wasProcessing = isProcessing;
 		isProcessing = isProcessing();
 		setCapacityFromSpeed();
@@ -161,12 +162,6 @@ public class TileItemProcessor extends TileEnergySidedInventory implements IItem
 	
 	// Processing
 
-	@Override
-	public void setInventorySlotContents(int index, ItemStack stack) {
-		super.setInventorySlotContents(index, stack);
-		updateMultipliers();
-	}
-
 	public void updateMultipliers() {
 		int speedCount = 1;
 		if (hasUpgrades) {
@@ -187,10 +182,8 @@ public class TileItemProcessor extends TileEnergySidedInventory implements IItem
 	public double getPowerMultiplier() {
 		return powerMultiplier;
 	}
-	
-	public double getProcessTime() {
-		return processTime;
-	}
+
+	public double getProcessTime() { return processTime; }
 	
 	public int getProcessPower() {
 		return processPower;
@@ -211,7 +204,11 @@ public class TileItemProcessor extends TileEnergySidedInventory implements IItem
 	}
 	
 	public boolean canProcessInputs() {
-		if (recipe == null) return false;
+		// no recipe, pass
+		if (recipe == null) {
+			return false;
+		}
+
 		setRecipeStats();
 		if (time >= baseProcessTime) return true;
 
@@ -349,7 +346,13 @@ public class TileItemProcessor extends TileEnergySidedInventory implements IItem
 		inputItemsExcludingSlot.remove(slot);
 		return inputItemsExcludingSlot;
 	}
-	
+
+	@Override
+	public void setInventorySlotContents(int index, ItemStack stack) {
+		super.setInventorySlotContents(index, stack);
+		updateMultipliers();
+	}
+
 	@Override
 	public boolean hasUpgrades() {
 		return hasUpgrades;
